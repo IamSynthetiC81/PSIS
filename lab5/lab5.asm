@@ -1,8 +1,8 @@
 .data
-	Str_OperationDet: .asciiz "Please determine operation, entry(E), inquiry (I), or quit(Q):"
+	Str_OperationDet: .asciiz "\nPlease determine operation, entry(E), inquiry (I), or quit(Q):"
 
 	Str_Entr_num: .asciiz "Please enter entry num :"
-	Str_Entr_lnam: .asciiz "Please enter last name:"
+	Str_Entr_lnam: .asciiz "\nPlease enter last name:"
 	Str_Entr_fnam: .asciiz "Please enter first name:"
 	Str_Entr_phnam: .asciiz "Please enter phone number:"
 	Str_Entr_succ: .asciiz "Thank, you the new entry is the following:"
@@ -17,52 +17,123 @@
 	Param_lnam_length: .word 20	# length of last name
 	Param_pnum_length: .word 20	# length of phone number
 
-	Addr_PhoneBook: .
+	Addr_PhoneBook: 	.align 2	# Address of phonebook in the stack	
+				.space  60
+	Buffer_firstName:	.align 2	# Buffer where the first name will be saved 	
+			 	.space 20
+	Buffer_lastName:  	.align 2	# Buffer where the last name will be saved
+			 	.space 20	
+	Buffer_PhoneNumber: 	.align 2	# Buffer where the phone number will be saved
+			   	.space 20				
 
-	Char_I : .byte 'I'
-	Char_E : .byte 'E'
-	Char_Q : .byte 'Q'
+	Char_I : .word 'I'
+	Char_E : .word 'E'
+	Char_Q : .word 'Q'
 
 .text 
 
 main:
 	whileInputInvalid:
 		jal InputPromt			# Promt user for input
-		move $t0, $v1			# Move input into $t0
+		move $t0, $v0			# Move input into $t0
 	
 		lw $t1, Char_Q			# Load Q into $t1 for comparison
-		beq $t0, $t1, ValidInput	# Compare input to #t1/Q, if equals jump to ValidInput
+		beq $t0, $t1, Exit		# Compare input to #t1/Q, if equals jump to Exit
 		lw $t1, Char_E			# Load E into $t1 for comparison
-		beq $t0, $t1, ValidInput	# Compare input to #t1/E, if equals jump to ValidInput
+		beq $t0, $t1, newEntry		# Compare input to #t1/E, if equals jump to ValidInput
 		lw $t1, Char_I			# Load Q into $t1 for comparison
 		beq $t0, $t1, ValidInput	# Compare input to #t1I, if equals jump to ValidInput
 	j whileInputInvalid			# If reached, input is invalid, therefore loop until valid.
 	ValidInput:
-	
-	
+	newEntry:				# Label newEntry : Called when user inputs E !
+		jal NewEntry			# Call function NewEntry
+		
+		j main
+	Exit:
+
+		li $v0, 10	
+		syscall				# Terminate the program
 	
 NewEntry:
-	sub $sp, $sp 4				# make room in the stack for 1 word
-	sw $ra, 0($sp)				# Store current $ra into the stack
+	sub $sp, $sp 4			# Allocate space in the stack for 1 word
+	sw $ra, 0($sp)			# Store current $ra into the stack
 	
-	jal LoadToStack				# Load all $tx registers to the stack.
-	move $t0, $a0				#
+	jal loadToStack			# Load all $tx registers to the stack.
+	
+	# Promt/Read Entry Number
+	li $v0, 4			# Load system call [Print String]
+	la $a0, Str_Entr_num		# Load string into $0 for printing
+	syscall	
+	
+	li $v0, 12			# Load system call [Reading a char]
+	syscall	
+	
+	move $t0, $v0			# Load char into $t0
+	
+	# Promt/Read Last Name
+	li $v0, 4			# Load system call [Print String]
+	la $a0, Str_Entr_lnam		# Load string into $0 for printing
+	syscall	
+	
 
+	li $v0, 8			# Load system call [Read String]
+    	la $a0, Buffer_lastName		# Load Buffer Address into $a0 for the data to be saved there
+    	add $a1, $0, 0x14 		# Max number of chars to read
+    	syscall
+
+	la $t1, Buffer_lastName		# Load the first name buffer address into $t1 	
+	
+	# Promt/Read First Name
+	li $v0, 4			# Load system call [Print String]
+	la $a0, Str_Entr_fnam		# Load string into $0 for printing
+	syscall	
+	
+	li $v0, 8			# Load system call [Read String]
+    	la $a0, Buffer_firstName	# Load Buffer Address into $a0 for the data to be saved there
+    	add $a1, $0, 0x14 		# Max number of chars to read
+    	syscall
+
+	la $t2, Buffer_firstName	# Load the first name buffer address into $t1 	
+
+	# Promt/Read Phone Number
+	li $v0, 4			# Load system call [Print String]
+	la $a0, Str_Entr_phnam		# Load string into $0 for printing
+	syscall	
+	
+	li $v0, 8			# Load system call [Read String]
+    	la $a0, Buffer_PhoneNumber	# Load Buffer Address into $a0 for the data to be saved there
+    	add $a1, $0, 0x14 		# Max number of chars to read
+    	syscall
+
+	la $t2, Buffer_PhoneNumber	# Load the first name buffer address into $t1 		
+	#### TESTING
+	li $v0, 4			# Load system call [Print String]
+	la $a0, Buffer_firstName	# Load string into $0 for printing
+	syscall	
+	la $a0, Buffer_lastName		# Load string into $0 for printing
+	syscall	
+	la $a0, Buffer_PhoneNumber	# Load string into $0 for printing
+	syscall	
+
+	# Closing code
+	jal unloadFromStack		# Unload $tx registers from stack
+	lw $ra, 0($sp)			# Unload original return address from stack
+	add $ra, $ra, 4			# Close the stack
+	
+	jr $ra				# Return
 
 InputPromt:
 	# Promts the user for input and returns the char that was read.
 	# Args : None
-	# returns : char in $v1
+	# returns : char in $v0
 	li $v0, 4			# Load system call [Print String]
 	la $a0, Str_OperationDet	# Load string into $0 for printing
 	syscall				# Execute
 
 	li $v0, 12			# Load system call [Reading a char]
 	syscall				# Execute	
-
-	move $v1, $v0			# Return char 
 	
-	jr $ra
+	jr $ra				# $V0 has the char already loaded
 loadToStack:
 	# Loads all $tx registers into the stack
 	# Args : $a0 : How many bytes to skip in the stack
@@ -74,8 +145,7 @@ loadToStack:
 	#|0x03		|0x03 <- (t8)
 	#| .		| .
 	#| .		| .
-	add $a0, $a0, 40
-	sub $sp, $sp, ($a0)	# make room for 18 variables
+	sub $sp, $sp, 40	# make room for 10 variables
 	sw $t0, 0($sp)
 	sw $t1, 4($sp)
 	sw $t2, 8($sp)
@@ -87,7 +157,7 @@ loadToStack:
 	sw $t8, 32($sp)
 	sw $t9, 36($sp)
 	
-	la $v0, $sp(40)		# Returns the top address of the saved data 
+	lw $v0, 40($sp)		# Returns the top address of the saved data 
 	jr $ra 			# return
 	
 unloadFromStack:
