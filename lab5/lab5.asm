@@ -96,7 +96,7 @@ init:
 		sw $0, ($t1)		# move NULL into stack
 		
 		add $t0, $t0, 4 	# increment counter
-		add $t1, $t1, 4 	# increment pointer to stack
+		sub $t1, $t1, 4 	# increment pointer to stack
 	blt $t0, $t2, NullifyStack	# While counter is less than 600, goto NullifyStack
 	# --- Function End --- #	
 	jr $ra				# Return
@@ -121,7 +121,7 @@ NewEntry:
 	
 	move $t0, $v0			# Load integer into $t0 
 	mul $t1, $t0, 60		# Calculate offset
-	add $t1, $s0, $t1		# Add offset into the phonebook
+	sub $t1, $s0, $t1		# Add offset into the phonebook
 					# start address 
 	lw $t2, ($t1)			# Load word from $t1 into $t2
 	beq $t2, $0, EntryVacant	# If entry is vacant, skip this code.
@@ -396,7 +396,7 @@ PrintEntryPromt:
 	move $t1, $s0			# Load the Phonebook Address into $t1
 	mul $t2, $t0, 60		# $t2 = 60*index | How much we must procced in the stack
 					# to reach the specified index
-	add $t1, $t1, $t2		# Increment the phonebook pointer to reach the requested index
+	sub $t1, $t1, $t2		# Increment the phonebook pointer to reach the requested index
 	
 	lw $t3 ($t1)
 	bne $t3, $0, ValidEntry
