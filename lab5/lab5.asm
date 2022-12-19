@@ -396,7 +396,7 @@ PrintEntryPromt:
 	move $t1, $s0			# Load the Phonebook Address into $t1
 	mul $t2, $t0, 60		# $t2 = 60*index | How much we must procced in the stack
 					# to reach the specified index
-	sub $t1, $t1, $t2		# Increment the phonebook pointer to reach the requested index
+	add $t1, $t1, $t2		# Increment the phonebook pointer to reach the requested index
 	
 	lw $t3 ($t1)
 	bne $t3, $0, ValidEntry
