@@ -96,7 +96,7 @@ init:
 		sw $0, ($t1)		# move NULL into stack
 		
 		add $t0, $t0, 4 	# increment counter
-		sub $t1, $t1, 4 	# increment pointer to stack
+		add $t1, $t1, 4 	# increment pointer to stack
 	blt $t0, $t2, NullifyStack	# While counter is less than 600, goto NullifyStack
 	# --- Function End --- #	
 	jr $ra				# Return
@@ -116,7 +116,7 @@ NewEntry:
 	la $a0, Str_Entr_num		# Load string into $0 for printing
 	syscall	
 	
-	li $v0, 5			# Load system call [Reading an integer]
+	li $v0, 5			# Load system call [Reading an char]
 	syscall	
 	
 	move $t0, $v0			# Load integer into $t0 
