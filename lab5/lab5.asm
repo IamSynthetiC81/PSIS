@@ -35,10 +35,7 @@
 
 main:
 	jal init
-	
-	
 	Promt:
-	
 		jal InputPromt			# Promt user for input
 		move $t0, $v0			# Move input into $t0
 	
@@ -82,10 +79,16 @@ main:
 	
 # -~-~-~- Functions -~-~-~- #
 init:	
-	# --- Function Start --- #
+
 	la $s0, ($sp)			# Save the top of the stack into $t0	
 	sub $sp, $sp, 600		# Make room in the stack for the phonebook
 	
+	# Initializes values and Stack space.
+	# - Stack Space : Nullifies the space where the phonebook will be saved.
+	# - $s0 : Global Pointer : Phonebook Start Address.
+	# No Arguments.
+	# No Returns.
+	# --- Function Start --- #
 	move $t0, $0			# Used as counter
 	move $t1, $s0			# Used as pointer to phonebook
 	li $t2, 600			# 600 bytes
@@ -95,7 +98,6 @@ init:
 		add $t0, $t0, 4 	# increment counter
 		sub $t1, $t1, 4 	# increment pointer to stack
 	blt $t0, $t2, NullifyStack	# While counter is less than 600, goto NullifyStack
-	
 	# --- Function End --- #	
 	jr $ra				# Return
 	
@@ -104,7 +106,11 @@ NewEntry:
 	sw $ra, 0($sp)			# Store current $ra into the stack
 	
 	jal loadToStack			# Load all $tx registers to the stack.
-	
+	# Promts the user for details, creates a new entry and saves it to the 
+	# stack by calling SaveToStack.
+	# No Arguments.
+	# No Returns.
+	# --- Function Start --- #
 	# Promt/Read Entry Number
 	li $v0, 4			# Load system call [Print String]
 	la $a0, Str_Entr_num		# Load string into $0 for printing
@@ -113,16 +119,17 @@ NewEntry:
 	li $v0, 5			# Load system call [Reading an integer]
 	syscall	
 	
-	move $t0, $v0			# Load char into $t0 
-	mul $t1, $t0, 60
-	add $t1, $s0, $t1
-	lw $t2, ($t1)
+	move $t0, $v0			# Load integer into $t0 
+	mul $t1, $t0, 60		# Calculate offset
+	add $t1, $s0, $t1		# Add offset into the phonebook
+					# start address 
+	lw $t2, ($t1)			# Load word from $t1 into $t2
 	beq $t2, $0, EntryVacant	# If entry is vacant, skip this code.
+		# --- Print "Entry is iccupied" --- #
 		li $v0, 4			# Load system call [Print String]
 		la $a0, Str_Entr_fail		# Load string into $0 for printing
 		syscall	
 		j NewEntryExit			# Exit function;
-	
 	EntryVacant:
 	# Promt/Read Last Name
 	li $v0, 4			# Load system call [Print String]
@@ -136,6 +143,7 @@ NewEntry:
 	
 	jal RemoveNewLine		# Removes NewLine from $a0
 	bgezal $v1, PrintNewLine 	# Prints newline if needed
+					# (Read RemoveNewLine doc for explenation)
 	
 	# Promt/Read First Name
 	li $v0, 4			# Load system call [Print String]
@@ -144,12 +152,12 @@ NewEntry:
 	
 	li $v0, 8			# Load system call [Read String]
     	la $a0, Buffer_firstName	# Load Buffer Address into $a0 for the data to be saved there
-    	add $a1, $0, 20 		# Max number of chars to read
-    	syscall
+	li $a1, 20			# Max number of chars to read
+	syscall
     	
 	jal RemoveNewLine		# Removes NewLine from $a0
 	bgezal $v1, PrintNewLine 	# Prints newline if needed
-  
+	
 	# Promt/Read Phone Number
 	li $v0, 4			# Load system call [Print String]
 	la $a0, Str_Entr_phnam		# Load string into $a0 for printing
@@ -164,21 +172,28 @@ NewEntry:
 	bgezal $v1, PrintNewLine 	# Prints newline if needed
 
 	# Save by calling SaveToStack
-	move $a0, $t0
-	la $a1, Buffer_lastName
-	la $a2, Buffer_firstName
-	la $a3, Buffer_PhoneNumber
-	jal SaveToStack
+	move $a0, $t1			# Load Save Address into Arg0
+	la $a1, Buffer_lastName		# Load Pull Address for last name
+	la $a2, Buffer_firstName	# Load Pull Address for first name
+	la $a3, Buffer_PhoneNumber	# Load Pull Address for phone number
+	jal SaveToStack			# Pulls data from Pull address and saves them
+					# into the Save Address provided in $a0
 
-
+	# --- Print "Your new entry is .... " --- #
 	li $v0, 4			# Load system call [Print String]
 	la $a0, Str_Entr_succ		# Load string for printing
 	syscall				# Execute
 
+	li $v0, 1			# Load system call [print integer]
+	move $a0, $t0			# Load Entry num
+	syscall
+
+	jal PrintSpace
+
 	move $a0, $t1			# Move 
 	jal PrintEntry
 
-	# Closing code
+	# --- Function End --- #
 	NewEntryExit:
 	jal unloadFromStack		# Unload $tx registers from stack
 	lw $ra, 0($sp)			# Unload original return address from stack
@@ -191,64 +206,70 @@ SaveToStack:
 	sw $ra, 0($sp)			# Store current $ra into the stack
 	
 	jal loadToStack			# Load all $tx registers to the stack.
-	
+	# Saves entry in the specified address.
+	# Arg0 : Stack Save Address -> where data will be saved
+	# Arg1 : Last Name Pull Address -> Address where Last Name will be pulled from.
+	# Arg2 : First Name Pull Address -> Address where First Name will be pulled from. 
+	# Arg3 : Phone Number Pull Address -> Address where Phone Number will be pulled from. 
 	# --- Function Start --- #
-	move $t0, $a0			# Arg0 : Index to stack
-	move $t1, $a1			# Arg1 : Memory Address of last name
-	move $t2, $a2			# Arg2 : Memory Address of first name
-	move $t3, $a3			# Arg3 : Memory Address of phone number
-
-	move $t4, $s0
-	mul $t5, $t0, 60		# $t5 = 60*index | How much we must procced in the stack
-					# to reach the specified index
-	sub $t4, $t4, $t5		# Increment the pointer to the phonebook to reach the requested index
+	move $t0, $a0		# Arg0
+	move $t1, $a1		# Arg1
+	move $t2, $a2		# Arg2
+	move $t3, $a3		# Arg3
 	
+	# We load each entry details into $t4 word by word, saving it each time
+	# in the appropriate address (pointed by $t0).
+	
+	# --- Save Last Name --- #
 	# Last Name - First Word
-	lw $t5, 0($t1)
-	sw $t5, 0($t4)		
+	lw $t4, 0($t1)		# Load from Pull Address
+	sw $t4, 0($t0)		# Save to Stack
 	# Last Name - Second Word		
-	lw $t5, 4($t1)
-	sw $t5, 4($t4)			
+	lw $t4, 4($t1)		# Load from Pull Address
+	sw $t4, 4($t0)		# Save to Stack
 	# Last Name - Third Word		
-	lw $t5, 8($t1)
-	sw $t5, 8($t4)
+	lw $t4, 8($t1)		#	~=~
+	sw $t4, 8($t0)		#	~=~
 	# Last Name - Fourth Word		
-	lw $t5, 12($t1)
-	sw $t5, 12($t4)	
+	lw $t4, 12($t1)		#	~=~
+	sw $t4, 12($t0)		#	~=~
 	# Last Name - Fifth Word		
-	lw $t5, 16($t1)
-	sw $t5, 16($t4)	
-		
+	lw $t4, 16($t1)
+	sw $t4, 16($t0)	
+	
+	# --- Save First Name --- #
 	# First Name - First Word
-	lw $t5, 0($t2)
-	sw $t5, 20($t4)		
+	lw $t4, 0($t2)
+	sw $t4, 20($t0)		
 	# First Name - Second Word		
-	lw $t5, 4($t2)
-	sw $t5, 24($t4)			
+	lw $t4, 4($t2)
+	sw $t4, 24($t0)			
 	# First Name - Third Word		
-	lw $t5, 8($t2)
-	sw $t5, 28($t4)
+	lw $t4, 8($t2)
+	sw $t4, 28($t0)
 	# First Name - Fourth Word		
-	lw $t5, 12($t2)
-	sw $t5, 32($t4)	
+	lw $t4, 12($t2)
+	sw $t4, 32($t0)	
 	# First Name - Fifth Word		
-	lw $t5, 16($t2)
-	sw $t5, 36($t4)	
+	lw $t4, 16($t2)
+	sw $t4, 36($t0)	
+
+	# --- Save Phone Number --- #
 	# Phone Number - First Word
-	lw $t5, 0($t3)
-	sw $t5, 40($t4)		
+	lw $t4, 0($t3)
+	sw $t4, 40($t0)		
 	# Phone Number - Second Word		
-	lw $t5, 4($t3)
-	sw $t5, 44($t4)			
+	lw $t4, 4($t3)
+	sw $t4, 44($t0)			
 	# Phone Number - Third Word		
-	lw $t5, 8($t3)
-	sw $t5, 48($t4)
+	lw $t4, 8($t3)
+	sw $t4, 48($t0)
 	# Phone Number - Fourth Word		
-	lw $t5, 12($t3)
-	sw $t5, 52($t4)	
+	lw $t4, 12($t3)
+	sw $t4, 52($t0)	
 	# Phone Number - Fifth Word		
-	lw $t5, 16($t3)
-	sw $t5, 56($t4)	
+	lw $t4, 16($t3)
+	sw $t4, 56($t0)	
 	# --- Function End --- #				
 	jal unloadFromStack		# Unload $tx registers
 	lw $ra, ($sp)			# Unload return address from stack
@@ -261,9 +282,15 @@ RemoveNewLine:
 	
 	jal loadToStack			# Load all $tx registers to the stack.
 	
+	# Searches and removes a single newline char from the string in the specified address.
+	# Arg0 : String Pull Address 
+	# Returns : -1 if newline char was found and removed, else 0.
+	#		( The -1 return value was chosen for an easier incorporation
+	#		  with the bgezal command (branch if greated or equal to zero).
+	#		  A single line command is suffecient to call PrintNewLine and return
+	#		  without extra complications.)
 	# --- Function Start --- #
-	
-	move $t0, $a0			# Arg0 : Address of string
+	move $t0, $a0			# Arg0
 	move $v1, $0			# Returns 0 if newline was not found, 1 if found.
 	add $t8, $t0, 20		# Load the last word address into $t8
 	WhileNotEndOfString:
@@ -278,7 +305,7 @@ RemoveNewLine:
 			and $t1, $t1, $t2		# And the mask with the word
 			
 			sw $t1, ($t0)			# Store word back
-			li $v1, -1			# Return 1
+			li $v1, -1			# Return -1
 			j RemoveNewLineExit
 			
 			Repeat:
@@ -315,11 +342,12 @@ PrintEntry:
 	sw $ra, 0($sp)			# Store current $ra into the stack
 	
 	jal loadToStack			# Load all $tx registers to the stack.
-	
+	# Prints the entry details at the specified address.
+	# Arg0 : Entry Pull Address.
 	# --- Function Start --- #
 	
-	move $t1, $a0			# Arg0 : Address of entry to print
-	
+	move $t1, $a0			# Arg0
+
 	# --- Print Last Name --- #	
 	li $v0, 4			# Load system call [Print String]
 	move $a0, $t1			# Load string for printing
@@ -353,6 +381,8 @@ PrintEntryPromt:
 	sw $ra, 0($sp)			# Store current $ra into the stack
 	
 	jal loadToStack			# Load all $tx registers to the stack.
+	# Promt for the Inquiry option.
+	# Returns : 0 if the entry is vacant, else the address of the specified entry.
 	# --- Function Start --- #
 	li $v0, 4			# Load system call [Print string]
 	la $a0, Str_Inq_num		# Load string into system call
@@ -370,8 +400,8 @@ PrintEntryPromt:
 	
 	lw $t3 ($t1)
 	bne $t3, $0, ValidEntry
-		li $v0, 4			# Load system call [Print String]
-		la $a0, Str_Inq_fail		# Load string for printing
+		li $v0, 4		# Load system call [Print String]
+		la $a0, Str_Inq_fail	# Load string for printing
 		syscall		
 		
 		move $v1, $0		# Output 0 to mark failure.
@@ -430,4 +460,3 @@ unloadFromStack:
 	add $sp, $sp, 40	# Retract the stack
 	
 	jr $ra			# return
-
